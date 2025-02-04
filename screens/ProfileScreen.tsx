@@ -77,7 +77,7 @@ export default function ProfileScreen({ navigation }) {
       {error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : (
-        <>
+        <View style={styles.profileContent}>
           <Image
             source={{
               uri: userData?.profileImage || "https://via.placeholder.com/150",
@@ -87,8 +87,8 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.name}>{userData?.name}</Text>
           <Text style={styles.email}>{userData?.email}</Text>
           {/* <Text style={styles.role}>Role: {userData?.role}</Text> */}
-          <Button title="Logout" onPress={handleLogout} />
-        </>
+          <Button title="Logout" onPress={handleLogout} color="#FF6347" />
+        </View>
       )}
     </View>
   );
@@ -100,32 +100,54 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
+    backgroundColor: "#F5F5F5",
   },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
+  profileContent: {
+    justifyContent: "center",
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 10,
+    elevation: 5, 
+    shadowColor: "#000", 
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    width: "100%",
+    alignItems: "center",
+    height: 600
+  },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     marginBottom: 15,
+    borderWidth: 4,
+    borderColor: "#FF6347", 
   },
   name: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "bold",
+    color: "#333",
+    marginBottom: 10,
   },
   email: {
     fontSize: 18,
-    color: "gray",
+    color: "#555",
+    marginBottom: 8,
   },
   role: {
     fontSize: 18,
+    color: "#777",
     marginBottom: 20,
   },
   errorText: {
     fontSize: 16,
     color: "red",
+    textAlign: "center",
   },
 });

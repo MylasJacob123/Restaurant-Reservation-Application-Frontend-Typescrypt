@@ -1,8 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Button, ScrollView, StyleSheet, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  Button,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
+import { useDispatch, useSelector } from "react-redux";
 import ScreenWrapper from "../components/ScreenWrapper";
-import fallbackImage from "../assets/images/Fallback-image.jpg";
 import moment from "moment";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { RootState } from "../store"; 
 
 interface ReservationSlot {
   _id: string;
@@ -30,6 +39,9 @@ const RestaurantDetailsScreen = ({ route, navigation }: any) => {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<ReservationSlot | null>(null);
+
+  const user = useSelector((state: RootState) => state.auth.user);
 
   useEffect(() => {
     fetch(
@@ -45,6 +57,50 @@ const RestaurantDetailsScreen = ({ route, navigation }: any) => {
         setLoading(false);
       });
   }, [restaurantId]);
+
+  const handleReserve = async () => {
+    if (!selectedSlot || !restaurant || !user) return;
+
+    try {
+      const reservationData = {
+        user: user._id, 
+        restaurant: restaurant._id,
+        date: selectedSlot.date,
+        status: "confirmed",
+      };
+
+      const authData = await AsyncStorage.getItem("auth");
+      const token = authData ? JSON.parse(authData).token : null;
+      console.log("The token", token);
+
+      if (!token) {
+        setError("Authentication required.");
+        return;
+      }
+
+      const response = await fetch(
+        "https://restaurant-reservation-application-bq2w.onrender.com/api/add-reservation",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(reservationData),
+        }
+      );
+
+      const data = await response.json();
+      if (response.ok) {
+        navigation.navigate("Payment", { reservation: data });
+      } else {
+        setError(data.error || "Failed to reserve");
+      }
+    } catch (error) {
+      setError("Error occurred while making reservation.");
+      console.error("Error:", error);
+    }
+  };
 
   if (loading) {
     return (
@@ -82,8 +138,13 @@ const RestaurantDetailsScreen = ({ route, navigation }: any) => {
         {restaurant.reservationSlots.length > 0 ? (
           restaurant.reservationSlots.map((slot) => (
             <View key={slot._id} style={styles.slot}>
-              <Text>{moment(slot.date).format('lll')}</Text>
+              <Text>{moment(slot.date).format("lll")}</Text>
               <Text>Available Slots: {slot.slots}</Text>
+              <Button
+                title="Select Slot"
+                onPress={() => setSelectedSlot(slot)}
+                color={selectedSlot?._id === slot._id ? "#F09E61" : "#000"}
+              />
             </View>
           ))
         ) : (
@@ -92,7 +153,8 @@ const RestaurantDetailsScreen = ({ route, navigation }: any) => {
 
         <Button
           title="Reserve Now"
-          onPress={() => navigation.navigate("Payment")}
+          onPress={handleReserve}
+          disabled={!selectedSlot}
         />
       </ScrollView>
     </ScreenWrapper>
@@ -102,6 +164,7 @@ const RestaurantDetailsScreen = ({ route, navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
+    backgroundColor: "#fff",
   },
   name: {
     fontSize: 24,
@@ -110,16 +173,16 @@ const styles = StyleSheet.create({
   },
   cuisine: {
     fontSize: 18,
-    fontStyle: "italic",
-    marginBottom: 10,
+    color: "#555",
+    marginBottom: 8,
   },
   subTitle: {
-    marginTop: 20,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "bold",
+    marginVertical: 10,
   },
   slot: {
-    marginVertical: 10,
+    marginBottom: 10,
   },
 });
 
