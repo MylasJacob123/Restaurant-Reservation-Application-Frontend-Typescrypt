@@ -1,8 +1,10 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface User {
-  id: string;
+  _id: string; 
   name: string;
+  email: string;
 }
 
 interface AuthState {
@@ -17,6 +19,22 @@ const initialState: AuthState = {
   token: null,
   isLoading: false,
   error: null,
+};
+
+const saveAuthToStorage = async (user: User, token: string) => {
+  try {
+    await AsyncStorage.setItem("auth", JSON.stringify({ user, token }));
+  } catch (error) {
+    console.error("Error saving auth state:", error);
+  }
+};
+
+const clearAuthFromStorage = async () => {
+  try {
+    await AsyncStorage.removeItem("auth");
+  } catch (error) {
+    console.error("Error clearing auth state:", error);
+  }
 };
 
 const authSlice = createSlice({
@@ -34,6 +52,7 @@ const authSlice = createSlice({
       state.token = action.payload.token;
       state.isLoading = false;
       state.error = null;
+      saveAuthToStorage(action.payload.user, action.payload.token);
     },
     loginFailure: (state, action: PayloadAction<string>) => {
       state.isLoading = false;
@@ -42,6 +61,7 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.token = null;
+      clearAuthFromStorage();
     },
     registerStart: (state) => {
       state.isLoading = true;
@@ -54,10 +74,17 @@ const authSlice = createSlice({
       state.token = action.payload.token;
       state.isLoading = false;
       state.error = null;
+      saveAuthToStorage(action.payload.user, action.payload.token);
     },
     registerFailure: (state, action: PayloadAction<string>) => {
       state.isLoading = false;
       state.error = action.payload;
+    },
+    loadAuthState: (state, action: PayloadAction<{ user: User; token: string } | null>) => {
+      if (action.payload) {
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+      }
     },
   },
 });
@@ -70,6 +97,7 @@ export const {
   registerStart,
   registerSuccess,
   registerFailure,
+  loadAuthState,
 } = authSlice.actions;
 
 export default authSlice.reducer;

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,6 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { setRestaurants, setLoading, setError } from "../redux/dbSlice";
 import fallbackImage from "../assets/images/Fallback-image.jpg";
-// import moment from "moment";
 import { RootState } from "../redux/store";
 
 interface Restaurant {
@@ -21,7 +20,7 @@ interface Restaurant {
   name: string;
   location: string;
   cuisine: string;
-  image: string;
+  image: string | null;
   reservationSlots: Array<{
     _id: string;
     date: string;
@@ -35,6 +34,10 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     (state: RootState) => state.db
   );
 
+  const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null);
+  const [filteredRestaurants, setFilteredRestaurants] =
+    useState<Restaurant[]>(restaurants);
+
   useEffect(() => {
     const fetchRestaurants = async () => {
       dispatch(setLoading(true));
@@ -45,6 +48,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
         const data: Restaurant[] = await response.json();
         dispatch(setRestaurants(data));
         dispatch(setLoading(false));
+        setFilteredRestaurants(data);
       } catch (err) {
         console.error("Error fetching restaurants:", err);
         dispatch(setError("Failed to load restaurants"));
@@ -54,6 +58,20 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
 
     fetchRestaurants();
   }, [dispatch]);
+
+  useEffect(() => {
+    if (selectedCuisine) {
+      setFilteredRestaurants(
+        restaurants.filter(
+          (r) => r.cuisine.toLowerCase() === selectedCuisine.toLowerCase()
+        )
+      );
+    } else {
+      setFilteredRestaurants(restaurants);
+    }
+  }, [selectedCuisine, restaurants]);
+
+  const cuisines = Array.from(new Set(restaurants.map((r) => r.cuisine)));
 
   if (loading) {
     return (
@@ -72,7 +90,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.headerSection}>
         <Text style={styles.title}>Welcome to Restaurant Finder</Text>
         <Text style={styles.subtitle}>
@@ -82,10 +100,10 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Trending Restaurants</Text>
-          <TouchableOpacity onPress={() => navigation.navigate("DiscoverPage")}>
+          <Text style={styles.sectionTitle}>Popular Restaurants</Text>
+          {/* <TouchableOpacity onPress={() => navigation.navigate("Explore")}>
             <Text style={styles.redirectText}>View All</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
         <FlatList
           horizontal
@@ -94,12 +112,14 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
           renderItem={({ item }) => (
             <TouchableOpacity
               onPress={() =>
-                navigation.navigate("RestaurantDetails", { restaurant: item })
+                navigation.navigate("RestaurantDetails", {
+                  restaurantId: item._id,
+                })
               }
             >
               <View style={styles.card}>
                 <ImageBackground
-                  source={fallbackImage}
+                  source={item.image ? { uri: item.image } : fallbackImage}
                   style={styles.image}
                   imageStyle={{ borderRadius: 8 }}
                 >
@@ -119,74 +139,99 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Featured Categories</Text>
           <TouchableOpacity>
-            <Text style={styles.redirectText}>Explore More</Text>
+            <Text
+              style={styles.redirectText}
+              onPress={() => navigation.navigate("Explore")}
+            >
+              Explore More
+            </Text>
           </TouchableOpacity>
         </View>
         <ScrollView
-          horizontal={true}
+          horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.scrollContainer}
         >
           <View style={styles.categoriesContainer}>
-            <TouchableOpacity style={styles.categoryCard}>
-              <Text style={styles.categoryText}>Italian</Text>
+            <TouchableOpacity
+              style={[
+                styles.categoryCard,
+                selectedCuisine === null && styles.selectedCategory,
+              ]}
+              onPress={() => setSelectedCuisine(null)}
+            >
+              <Text
+                style={[
+                  styles.categoryText,
+                  selectedCuisine === null && styles.selectedCategoryText,
+                ]}
+              >
+                All
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.categoryCard}>
-              <Text style={styles.categoryText}>Chinese</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.categoryCard}>
-              <Text style={styles.categoryText}>Fast Food</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.categoryCard}>
-              <Text style={styles.categoryText}>Fine Dining</Text>
-            </TouchableOpacity>
+
+            {cuisines.map((cuisine) => (
+              <TouchableOpacity
+                key={cuisine}
+                style={[
+                  styles.categoryCard,
+                  selectedCuisine === cuisine && styles.selectedCategory,
+                ]}
+                onPress={() => setSelectedCuisine(cuisine)}
+              >
+                <Text
+                  style={[
+                    styles.categoryText,
+                    selectedCuisine === cuisine && styles.selectedCategoryText,
+                  ]}
+                >
+                  {cuisine}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </ScrollView>
       </View>
 
       <View style={styles.sectionBottom}>
-        <Text style={styles.subheading}>Restaurants</Text>
+        <Text style={styles.subheading}>New Restaurants</Text>
         <FlatList
-          data={restaurants}
+          data={filteredRestaurants.slice(-6)}
           keyExtractor={(item) => item._id.toString()}
           renderItem={({ item }) => (
-            <View style={styles.card}>
-              {item.image ? (
-                <Image source={{ uri: item.image }} style={styles.image} />
-              ) : (
-                <ImageBackground
-                  source={fallbackImage}
-                  style={styles.fallbackImage}
-                  imageStyle={{ borderRadius: 8 }}
-                >
-                  <View style={styles.textOverlay}>
-                    <Text style={styles.restaurantName}>
-                      {item.name || "Restaurant"}
-                    </Text>
-                    <Text style={styles.restaurantInfo}>
-                      {item.location || "Location"}
-                    </Text>
-                    <Text style={styles.restaurantInfo}>
-                      {item.cuisine || "Cuisine"}
-                    </Text>
-                  </View>
-                </ImageBackground>
-              )}
-            </View>
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() =>
+                navigation.navigate("RestaurantDetails", {
+                  restaurantId: item._id,
+                })
+              }
+            >
+              <ImageBackground
+                source={item.image ? { uri: item.image } : fallbackImage}
+                style={styles.fallbackImage}
+                imageStyle={{ borderRadius: 8 }}
+              >
+                <View style={styles.textOverlay}>
+                  <Text style={styles.restaurantName}>{item.name}</Text>
+                  <Text style={styles.restaurantLocation}>{item.location}</Text>
+                  <Text style={styles.restaurantCuisine}>{item.cuisine}</Text>
+                </View>
+              </ImageBackground>
+            </TouchableOpacity>
           )}
         />
       </View>
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    // backgroundColor: "#f8f9fa",
     padding: 10,
     marginTop: 40,
-    marginBottom: 40,
   },
   centered: {
     flex: 1,
@@ -203,8 +248,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
+    fontWeight: "lighter",
+    color: "#F09E61",
+    marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
@@ -261,22 +307,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   categoryCard: {
-    backgroundColor: "#ddd",
-    padding: 10,
-    marginHorizontal: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: "lightgray",
+    marginRight: 10,
+    marginBottom: 0,
     borderRadius: 5,
+    minWidth: 80,
+    minHeight: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
   },
   categoryText: {
-    fontSize: 16,
-    fontWeight: "bold",
+    color: "white",
+    fontWeight: "lighter",
+    fontSize: 15,
+    textAlign: "center",
+    paddingHorizontal: 5,
+  },
+  selectedCategory: {
+    backgroundColor: "#F09E61",
+  },
+  selectedCategoryText: {
+    color: "whitesmoke",
   },
   sectionBottom: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    // backgroundColor: "#f8f9fa",
     width: "100%",
     padding: 10,
-    marginTop: 40,
+    marginTop: 15,
     marginBottom: 40,
+    // height: 500,
   },
   centered: {
     flex: 1,
@@ -348,10 +411,14 @@ const styles = StyleSheet.create({
     color: "#fff",
     textAlign: "center",
   },
-  restaurantInfo: {
+  restaurantLocation: {
     fontSize: 14,
-    color: "#ddd",
-    textAlign: "center",
+    color: "#777",
+    marginBottom: 5,
+  },
+  restaurantCuisine: {
+    fontSize: 14,
+    color: "#F09E61",
   },
   reservationContainer: {
     marginTop: 10,
@@ -367,6 +434,5 @@ const styles = StyleSheet.create({
     color: "#ddd",
   },
 });
-
 
 export default HomeScreen;
